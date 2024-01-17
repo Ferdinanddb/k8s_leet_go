@@ -1,15 +1,20 @@
 package main
 
 import (
-	"bufio"
+	// "bufio"
 	"context"
 	"flag"
 	"fmt"
-	"os"
+	// "os"
 	"path/filepath"
 	"bytes"
 	"io"
 	"time"
+
+	"net/http"
+
+    "github.com/gin-gonic/gin"
+	"log"
 
 	// appsv1 "k8s.io/api/apps/v1"
 	apiv1 "k8s.io/api/core/v1"
@@ -30,6 +35,42 @@ import (
 )
 
 func main() {
+	router := gin.Default()
+	router.LoadHTMLGlob("templates/*")
+	
+
+	router.GET("/", func(c *gin.Context) {
+		c.HTML(http.StatusOK, "welcome.tmpl", gin.H{
+			"title": "Welcome to my Project !",
+		})
+	})
+
+	router.POST("/run_code", postK8sJob)
+
+	log.Fatal(router.Run(":8080"))
+}
+
+type codeRequest struct {
+    UserID string  `json:"userid"`
+	Language     string  `json:"language"`
+    Content  string  `json:"content"`
+}
+
+func postK8sJob(c *gin.Context) {
+	var codeRequestToExec codeRequest
+
+	if parsingErr := c.BindJSON(&codeRequestToExec); parsingErr != nil {
+		return
+	}
+
+	jobResponse := createK8sJob(codeRequestToExec.Language, codeRequestToExec.Content)
+	c.String(http.StatusOK, fmt.Sprintf("Result is %s\nCode executed is:\n\n%s\n", jobResponse, codeRequestToExec.Content))
+}
+
+
+
+
+func createK8sJob(language string, inputCode string) string {
 	var kubeconfig *string
 	if home := homedir.HomeDir(); home != "" {
 		kubeconfig = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
@@ -47,9 +88,18 @@ func main() {
 		panic(err)
 	}
 
-	podsClient := clientset.CoreV1().Pods(apiv1.NamespaceDefault)
+	podsClient, jobsClient := clientset.CoreV1().Pods(apiv1.NamespaceDefault), clientset.BatchV1().Jobs(apiv1.NamespaceDefault)
 
-	jobsClient := clientset.BatchV1().Jobs(apiv1.NamespaceDefault)
+	var containerName, containerImage string
+	var containerCommand []string
+	if language == "python" {
+		containerName = "python"
+		containerImage = "python:3.11-slim-bookworm"
+
+		formattedExecCode := fmt.Sprintf("exec('''%v''')", inputCode)
+		containerCommand = []string{"python", "-c", formattedExecCode}
+	}
+	
 
 	job_req := &batchv1.Job{
 		Spec: batchv1.JobSpec{
@@ -57,9 +107,13 @@ func main() {
 				Spec: apiv1.PodSpec{
 					Containers: []apiv1.Container{
 						{
-							Name: "python",
-							Image: "python",
-							Command: []string{"python", "-c", "exec('''def add(a,b):\n  return a + b\n\nprint(add(1,1))''')"},
+							Name: containerName,
+							Image: containerImage,
+							ImagePullPolicy: apiv1.PullIfNotPresent,
+							Command: containerCommand,
+							
+							// Command: []string{"python", "-c", "exec('''class Solution:\n\tdef add(a,b):\n\t\treturn a + b\n\nprint(Solution.add(1,1))''')"},
+							// Command: []string{"python", "-c", "exec('''classdef add(a,b):\n  return a + b\n\nprint(add(1,1))''')"},
 							
 						},
 					},
@@ -76,16 +130,16 @@ func main() {
 	}
 
 	
-	fmt.Println("Creating job...")
+	log.Println("Creating job...")
 	job_res, job_err := jobsClient.Create(context.TODO(), job_req, metav1.CreateOptions{})
 
 	
 	// result, err := podsClient.Create(context.TODO(), pod_req, metav1.CreateOptions{})
 	if job_err != nil {
-		fmt.Println(job_err.Error())
+		log.Println(job_err.Error())
 		panic(job_err)
 	}
-	fmt.Printf("Created job %q.\n", job_res.GetObjectMeta().GetName())
+	log.Printf("Created job %q.\n", job_res.GetObjectMeta().GetName())
 
 	// wait for the pod to be ready
 
@@ -104,24 +158,22 @@ func main() {
 			case event := <-watcher.ResultChan():
 				job := event.Object.(*batchv1.Job)
 
-				if job.Status.Failed >= 1 {   
-					fmt.Printf("The POD \"%s\" failed", job_res.GetObjectMeta().GetName())
+				if job.Status.Failed > 0 || job.Status.Succeeded > 0 {   
+					log.Printf("The POD \"%s\" finished\n\n", job_res.GetObjectMeta().GetName())
 					break looping;
-				} else if job.Status.Succeeded >= 1 {
-					fmt.Printf("The POD \"%s\" succeeded", job_res.GetObjectMeta().GetName())
-					break looping;
+				} else if job.Status.Active > 0 || (job.Status.Active == 0 && job.Status.Succeeded == 0 && job.Status.Failed == 0) {
+					log.Printf("Status of the job is : %v\n", job.Status)
+					time.Sleep(1 * time.Second)
 				} else {
-					fmt.Println("Sleeping for 5 seconds waiting for pods to be running...")
-					time.Sleep(5 * time.Second)
+					log.Println("Something weird occured, job finished but not failed nor succeeded.")
+					break looping;
 				}
 
 			case <-context.TODO().Done():
-				fmt.Printf("Exit from waitPodRunning for POD \"%s\" because the context is done", job_res.GetObjectMeta().GetName())
+				log.Printf("Exit from waitPodRunning for POD \"%s\" because the context is done", job_res.GetObjectMeta().GetName())
 				break looping;
 		}
 	}
-
-
 	
 	list_pods, list_pods_err := podsClient.List(
 		context.TODO(), 
@@ -130,13 +182,13 @@ func main() {
 		},
 	)
 	if list_pods_err != nil {
-		fmt.Println(list_pods_err.Error())
+		log.Println(list_pods_err.Error())
 		panic(list_pods_err)
 	}
-    
+	var strLogs string
 	for _, v := range list_pods.Items {
-		log := podsClient.GetLogs(v.Name, &apiv1.PodLogOptions{})
-		podLogs, podlogs_err := log.Stream(context.TODO())
+		podLogResp := podsClient.GetLogs(v.Name, &apiv1.PodLogOptions{})
+		podLogs, podlogs_err := podLogResp.Stream(context.TODO())
 		if podlogs_err != nil {
 			panic(podlogs_err)
 		}
@@ -147,39 +199,41 @@ func main() {
 		if bug_err != nil {
 			panic(bug_err)
 		}
-		str := buf.String()
+		strLogs = buf.String()
 
-		fmt.Println(str)
+		log.Println(strLogs)
 
-		prompt()
-		fmt.Println("Deleting pod...")
+		// prompt()
+		log.Println("Deleting pod...")
 		deletePolicy := metav1.DeletePropagationForeground
 		if err := podsClient.Delete(context.TODO(), v.Name, metav1.DeleteOptions{
 			PropagationPolicy: &deletePolicy,
 		}); err != nil {
 			panic(err)
 		}
-		fmt.Println("Deleted pod.")
+		log.Println("Deleted pod.")
 
-		fmt.Println("Deleting job...")
+		log.Println("Deleting job...")
 		job_deletePolicy := metav1.DeletePropagationForeground
 		if job_err := jobsClient.Delete(context.TODO(), job_res.GetName(), metav1.DeleteOptions{
 			PropagationPolicy: &job_deletePolicy,
 		}); job_err != nil {
 			panic(err)
 		}
-		fmt.Println("Deleted pod.")
+		log.Println("Deleted pod.")
 	}
+
+	return strLogs
 }
 
-func prompt() {
-	fmt.Printf("-> Press Return key to continue.")
-	scanner := bufio.NewScanner(os.Stdin)
-	for scanner.Scan() {
-		break
-	}
-	if err := scanner.Err(); err != nil {
-		panic(err)
-	}
-	fmt.Println()
-}
+// func prompt() {
+// 	fmt.Printf("-> Press Return key to continue.")
+// 	scanner := bufio.NewScanner(os.Stdin)
+// 	for scanner.Scan() {
+// 		break
+// 	}
+// 	if err := scanner.Err(); err != nil {
+// 		panic(err)
+// 	}
+// 	fmt.Println()
+// }
