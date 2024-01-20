@@ -10,11 +10,12 @@ import (
 	"bytes"
 	"io"
 	"time"
+	"log"
+
 
 	"net/http"
 
     "github.com/gin-gonic/gin"
-	"log"
 
 	// appsv1 "k8s.io/api/apps/v1"
 	apiv1 "k8s.io/api/core/v1"
@@ -32,20 +33,35 @@ import (
 	// _ "k8s.io/client-go/plugin/pkg/client/auth/azure"
 	// _ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	// _ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
+
+	"example/env"
+	"example/database"
+	"example/model"
+	"example/controller"
 )
+
+func init() {
+	env.LoadEnv()
+
+	// Connect to DB
+	database.Connect()
+    database.Database.AutoMigrate(&model.User{})
+    database.Database.AutoMigrate(&model.Entry{})
+
+}
 
 func main() {
 	router := gin.Default()
-	router.LoadHTMLGlob("templates/*")
 	
+	publicRoutes := router.Group("/auth")
+    publicRoutes.POST("/register", controller.Register)
+    publicRoutes.POST("/login", controller.Login)
 
-	router.GET("/", func(c *gin.Context) {
-		c.HTML(http.StatusOK, "welcome.tmpl", gin.H{
-			"title": "Welcome to my Project !",
-		})
-	})
 
-	router.POST("/run_code", postK8sJob)
+	protectedRoutes := router.Group("/api")
+	// Implement a middleware to login and validate token
+
+	protectedRoutes.POST("/run_code", postK8sJob)
 
 	log.Fatal(router.Run(":8080"))
 }

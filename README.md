@@ -28,6 +28,8 @@ I do this to :
 - [ ] Explose the codebase in different subfolders
 - [ ] Implement the token generator and token verification
 - [ ] Implement the DB
+- [ ] Implement middleware
+- [ ] Implement helm chart to deploy the project on k8s (+ postgres, ...)
 - [ ] Implement the history retrieval
 - [ ] Implement a caching layer
 - [ ] Improve the scalability
@@ -41,11 +43,20 @@ I do this to :
 - Install golang
 - Have a kubernetes cluster deployed locally (I use k3s via Rancher Desktop)
     - Rancher uses containerd in my case behind the scene, all the container images are retrieve thanks to Rancher.
+- Install helm
 
 
 ### Get the dependencies 
 ```sh
 go get .
+```
+
+### PostgreSQL initialization
+```sh
+helm install postgresql-test oci://registry-1.docker.io/bitnamicharts/postgresql\n
+export PGPASSWORD=$(kubectl get secret --namespace default postgresql-test -o jsonpath="{.data.postgres-password}" | base64 -d)
+kubectl port-forward --namespace default svc/postgresql-test 5432:5432 &
+createdb --host 127.0.0.1 -U postgres  -p 5432 test -w
 ```
 
 ### Build the project
