@@ -53,10 +53,26 @@ go get .
 
 ### PostgreSQL initialization
 ```sh
-helm install postgresql-test oci://registry-1.docker.io/bitnamicharts/postgresql\n
+helm install postgresql-test oci://registry-1.docker.io/bitnamicharts/postgresql
 export PGPASSWORD=$(kubectl get secret --namespace default postgresql-test -o jsonpath="{.data.postgres-password}" | base64 -d)
 kubectl port-forward --namespace default svc/postgresql-test 5432:5432 &
 createdb --host 127.0.0.1 -U postgres  -p 5432 test -w
+```
+
+### Create env variables
+```sh
+cat <<EOF > .env
+# Database credentials
+DB_HOST="127.0.0.1"
+DB_USER="postgres"
+DB_PASSWORD="$PGPASSWORD"
+DB_NAME="test"
+DB_PORT="5432"
+
+# Authentication credentials
+TOKEN_TTL="2000"
+JWT_PRIVATE_KEY="TO_BE_CHANGED"
+EOF
 ```
 
 ### Build the project
@@ -74,10 +90,61 @@ go run .
 ```
 
 ### Perform a test
-```sh
-curl http://localhost:8080/run_code \
-    --include \
-    --header "Content-Type: application/json" \
-    --request "POST" \
-    --data '{"userid": "777","language": "python","content": "class Solution:\n\tdef add(a,b):\n\t\treturn a + b\n\nprint(Solution.add(1,1))"}'
+
+I did use Postman to perform a test because it is simpler since cookies are used to store the auth token.
+- On macOS : `brew install postman`
+
+#### Inside postman :
+
+1. Make a POST request :
+- URL :  `http://localhost:8080/auth/register`
+- Inside _Body_ :
+    - Select _raw_ and _JSON_ and fill in :
+    ```json
+    {
+        "username": "test1",
+        "password": "test1"
+    }
+    ```
+- Click on Send
+
+2. Make another POST request :
+- URL :  `http://localhost:8080/auth/login`
+- Inside _Body_ :
+    - Select _raw_ and _JSON_ and fill in :
+    ```json
+    {
+        "username": "test1",
+        "password": "test1"
+    }
+    ```
+- Click on Send
+- If you take a look at the Response section, you should see that a new table (containing info including your token) appeared inside the _Cookies_ section.
+
+
+3. Make another POST request :
+- URL :  `http://localhost:8080/api/run_code`
+- Inside _Body_ :
+    - Select _raw_ and _JSON_ and fill in :
+    ```json
+    {
+        "language": "python",
+        "content": "class Solution:\n\tdef add(a,b):\n\t\treturn a + b\n\nprint(Solution.add(1,1))"
+    }
+    ```
+- Click on Send
+- After a few seconds (~5secs), the following should appear in the Response section :
 ```
+User is test1
+Result is 2
+
+Code executed is:
+
+class Solution:
+	def add(a,b):
+		return a + b
+
+print(Solution.add(1,1))
+```
+---
+<center><font color="blue">Et</font color="blue"> voi<font color="red">là</font color="red"></center>

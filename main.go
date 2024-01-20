@@ -38,6 +38,8 @@ import (
 	"example/database"
 	"example/model"
 	"example/controller"
+	"example/middleware"
+	"example/helper"
 )
 
 func init() {
@@ -59,7 +61,7 @@ func main() {
 
 
 	protectedRoutes := router.Group("/api")
-	// Implement a middleware to login and validate token
+	protectedRoutes.Use(middleware.JWTAuthMiddleware())
 
 	protectedRoutes.POST("/run_code", postK8sJob)
 
@@ -67,20 +69,24 @@ func main() {
 }
 
 type codeRequest struct {
-    UserID string  `json:"userid"`
 	Language     string  `json:"language"`
     Content  string  `json:"content"`
 }
 
 func postK8sJob(c *gin.Context) {
 	var codeRequestToExec codeRequest
-
 	if parsingErr := c.BindJSON(&codeRequestToExec); parsingErr != nil {
 		return
 	}
 
+	user, err := helper.CurrentUser(c)
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+    }
+
 	jobResponse := createK8sJob(codeRequestToExec.Language, codeRequestToExec.Content)
-	c.String(http.StatusOK, fmt.Sprintf("Result is %s\nCode executed is:\n\n%s\n", jobResponse, codeRequestToExec.Content))
+	c.String(http.StatusOK, fmt.Sprintf("User is %s\nResult is %s\nCode executed is:\n\n%s\n", user.Username, jobResponse, codeRequestToExec.Content))
 }
 
 

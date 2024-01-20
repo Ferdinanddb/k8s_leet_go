@@ -5,6 +5,9 @@ import (
     "github.com/gin-gonic/gin"
     "net/http"
 	"example/helper"
+	"os"
+
+	"strconv"
 )
 
 func Register(context *gin.Context) {
@@ -58,5 +61,14 @@ func Login(context *gin.Context) {
         return
     }
 
-    context.JSON(http.StatusOK, gin.H{"jwt": jwt})
+	tokenTTL, tokenTTL_err := strconv.Atoi(os.Getenv("TOKEN_TTL"))
+	if tokenTTL_err != nil {
+		context.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+	}
+
+    context.SetSameSite(http.SameSiteLaxMode)
+	context.SetCookie("Authorization", jwt, tokenTTL, "", "", false, true)
+
+	context.JSON(http.StatusOK, gin.H{})
 } 

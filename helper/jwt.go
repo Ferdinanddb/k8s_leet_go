@@ -1,11 +1,16 @@
 package helper
 
 import (
-    "example/model"
-    "github.com/golang-jwt/jwt/v4"
-    "os"
-    "strconv"
-    "time"
+	"errors"
+	"example/model"
+	"fmt"
+	"net/http"
+	"os"
+	"strconv"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v4"
 )
 
 var privateKey = []byte(os.Getenv("JWT_PRIVATE_KEY"))
@@ -18,4 +23,52 @@ func GenerateJWT(user model.User) (string, error) {
         "eat": time.Now().Add(time.Second * time.Duration(tokenTTL)).Unix(),
     })
     return token.SignedString(privateKey)
+}
+
+func ValidateJWT(context *gin.Context) error {
+    token, err := getToken(context)
+    if err != nil {
+        return err
+    }
+    _, ok := token.Claims.(jwt.MapClaims)
+    if ok && token.Valid {
+        return nil
+    }
+    return errors.New("invalid token provided")
+}
+
+func CurrentUser(context *gin.Context) (model.User, error) {
+    err := ValidateJWT(context)
+    if err != nil {
+        return model.User{}, err
+    }
+    token, _ := getToken(context)
+    claims, _ := token.Claims.(jwt.MapClaims)
+    userId := uint(claims["id"].(float64))
+
+    user, err := model.FindUserById(userId)
+    if err != nil {
+        return model.User{}, err
+    }
+    return user, nil
+}
+
+func getToken(context *gin.Context) (*jwt.Token, error) {
+    tokenString := getTokenFromCookie(context)
+    token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+        if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+            return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+        }
+
+        return privateKey, nil
+    })
+    return token, err
+}
+
+func getTokenFromCookie(context *gin.Context) string {
+    bearerToken, err := context.Cookie("Authorization")
+	if err != nil {
+		context.AbortWithStatus(http.StatusUnauthorized)
+	}
+    return bearerToken
 }
