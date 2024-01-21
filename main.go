@@ -68,6 +68,10 @@ func main() {
 	log.Fatal(router.Run(":8080"))
 }
 
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
 type codeRequest struct {
 	Language     string  `json:"language"`
     Content  string  `json:"content"`
@@ -247,15 +251,3 @@ func createK8sJob(language string, inputCode string) string {
 
 	return strLogs
 }
-
-// func prompt() {
-// 	fmt.Printf("-> Press Return key to continue.")
-// 	scanner := bufio.NewScanner(os.Stdin)
-// 	for scanner.Scan() {
-// 		break
-// 	}
-// 	if err := scanner.Err(); err != nil {
-// 		panic(err)
-// 	}
-// 	fmt.Println()
-// }

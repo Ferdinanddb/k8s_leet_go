@@ -24,7 +24,7 @@ I do this to :
 
 
 ## TODO List (unorderered) :
-- [ ] Create a Makefile for this project to be initialized, built, tested, and Dockerized
+- [ ] Create a Makefile for this project to be initialized, built, tested, and containerized
 - [ ] Explose the codebase in different subfolders
 - [ ] Implement the token generator and token verification
 - [ ] Implement the DB
@@ -146,5 +146,12 @@ class Solution:
 
 print(Solution.add(1,1))
 ```
+
+### Build the container image
+- I use `nerdctl` which comes with Rancher Desktop :
+```sh
+nerdctl build .
+```
+
 ---
 <center><font color="blue">Et</font color="blue"> voi<font color="red">là</font color="red"></center>
