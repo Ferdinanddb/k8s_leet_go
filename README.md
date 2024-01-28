@@ -55,17 +55,22 @@ go get .
 ```sh
 helm install postgresql-test oci://registry-1.docker.io/bitnamicharts/postgresql
 export PGPASSWORD=$(kubectl get secret --namespace default postgresql-test -o jsonpath="{.data.postgres-password}" | base64 -d)
+export PG_HOST=$(kubectl get svc --namespace default postgresql-test -o jsonpath='{.spec.clusterIP}')
+
+
+# The following is not needed when deploying through YAML manifest file or Helm chart
 kubectl port-forward --namespace default svc/postgresql-test 5432:5432 &
 createdb --host 127.0.0.1 -U postgres  -p 5432 test -w
 ```
 
 ### Create env variables
 ```sh
-cat <<EOF > .env
+mkdir .do_not_push
+cat <<EOF > .do_not_push/.env
 # Database credentials
 DB_HOST="127.0.0.1"
 DB_USER="postgres"
-DB_PASSWORD="$PGPASSWORD"
+PGPASSWORD="$PGPASSWORD"
 DB_NAME="test"
 DB_PORT="5432"
 
@@ -94,7 +99,7 @@ go run .
 I did use Postman to perform a test because it is simpler since cookies are used to store the auth token.
 - On macOS : `brew install postman`
 
-#### Inside postman :
+#### Inside Postman :
 
 1. Make a POST request :
 - URL :  `http://localhost:8080/auth/register`
@@ -150,7 +155,15 @@ print(Solution.add(1,1))
 ### Build the container image
 - I use `nerdctl` which comes with Rancher Desktop :
 ```sh
-nerdctl build .
+nerdctl build --namespace=k8s.io -t backend .
+```
+
+### Personal notes :
+- To create the resources for testing this repo on K8S :
+```sh
+kubectl apply -f .do_not_push/zz_test.yaml
+kubectl port-forward --namespace default svc/test-k8s-svc 8080:80 &
+kubectl delete -f .do_not_push/zz_test.yaml
 ```
 
 ---

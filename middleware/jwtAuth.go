@@ -1,19 +1,20 @@
 package middleware
 
 import (
-    "example/helper"
-    "github.com/gin-gonic/gin"
-    "net/http"
+	"k8s_leet_code/helper"
+	"net/http"
+
+	"github.com/gin-gonic/gin"
 )
 
 func JWTAuthMiddleware() gin.HandlerFunc {
-    return func(context *gin.Context) {
-        err := helper.ValidateJWT(context)
-        if err != nil {
-            context.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
-            context.Abort()
-            return
-        }
-        context.Next()
-    }
+	return func(context *gin.Context) {
+		err := helper.ValidateJWT(context)
+		if err != nil {
+			context.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
+			context.Abort()
+			return
+		}
+		context.Next()
+	}
 }

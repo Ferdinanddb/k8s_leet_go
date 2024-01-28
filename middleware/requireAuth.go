@@ -11,10 +11,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"example/model"
+	"k8s_leet_code/model"
 )
 
-func RequireAuth (context *gin.Context) {
+func RequireAuth(context *gin.Context) {
 	// Get the cookie off the request
 	tokenStr, err := context.Cookie("Authorization")
 
@@ -28,12 +28,12 @@ func RequireAuth (context *gin.Context) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
-	
+
 		return []byte(os.Getenv("JWT_PRIVATE_KEY")), nil
 	})
 
 	log.Printf("alg is %s\n", token.Header)
-	
+
 	if claims, ok := token.Claims.(jwt.MapClaims); ok {
 		// Check for expiration
 		if float64(time.Now().Unix()) > claims["exp"].(float64) {
@@ -54,6 +54,5 @@ func RequireAuth (context *gin.Context) {
 	} else {
 		context.AbortWithStatus(http.StatusUnauthorized)
 	}
-	
 
 }

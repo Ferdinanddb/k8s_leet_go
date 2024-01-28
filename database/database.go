@@ -14,7 +14,7 @@ func Connect() {
     var err error
     host := os.Getenv("DB_HOST")
     username := os.Getenv("DB_USER")
-    password := os.Getenv("DB_PASSWORD")
+    password := os.Getenv("PGPASSWORD")
     databaseName := os.Getenv("DB_NAME")
     port := os.Getenv("DB_PORT")
 

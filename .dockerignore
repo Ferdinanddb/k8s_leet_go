@@ -2,6 +2,10 @@ README.md
 
 **/.env
 
+.do_not_push/
+
 # Exclude git history and configuration.
 .gitignore
 .git
+
+_INFRA/
