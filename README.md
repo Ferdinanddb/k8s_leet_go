@@ -24,15 +24,27 @@ I do this to :
 
 
 ## TODO List (unorderered) :
-- [ ] Create a Makefile for this project to be initialized, built, tested, and containerized
-- [ ] Explose the codebase in different subfolders
-- [ ] Implement the token generator and token verification
-- [ ] Implement the DB
-- [ ] Implement middleware
-- [ ] Implement helm chart to deploy the project on k8s (+ postgres, ...)
+
+- [X] Explose the codebase in different subfolders
+- [X] Implement middleware
+- [X] Implement the token generator and token verification
+  - [ ] Try to improve this ? Is it worth to cache the token ?
+- [X] Implement the DB
+  - [ ] Implement a table to host all the UserCodeRequest (userID, instanciationTime, requestUUID, languague, codeContent, workerStatus, outputResult)
+- [ ] Implement 2 go routines in _backend/api/postJob.go_ in order to :
+  - [ ] Push an event to Redis,
+  - [ ] Push the same event in the PostgreSQL table _UserCodeRequest_.
+- [ ] Start developping the asynq-worker go module to take care of suscribing to the Redis queue, handle the jobs, update corresp. rows in PostgreSQL table_UserCodeRequest_
+  - [ ] Use this [ASYNQ](https://github.com/hibiken/asynq) lib
+- [ ] May be try to implement a front-end in golang lol ?
+
+
+- [ ] Implement helm chart to deploy postgres, redis, backend, asynq-worker, ... and their needed resources.
+- [ ] Respect the _least access privileges principle_ by creating a k8s service account for the backend and another service account with extended rights for creating k8s jobs, pods, retrieving logs, ... for the asynq-worker service.
 - [ ] Implement the history retrieval
 - [ ] Implement a caching layer
 - [ ] Improve the scalability
+- [ ] Create a Makefile for this project to be initialized, built, tested, and containerized
 
 
 
@@ -45,6 +57,10 @@ I do this to :
     - Rancher uses containerd in my case behind the scene, all the container images are retrieve thanks to Rancher.
 - Install helm
 
+### Do not forget to `cd` into backend lol !
+```sh
+cd backend
+```
 
 ### Get the dependencies 
 ```sh
@@ -63,6 +79,13 @@ kubectl port-forward --namespace default svc/postgresql-test 5432:5432 &
 createdb --host 127.0.0.1 -U postgres  -p 5432 test -w
 ```
 
+### Redis Cluster initialization
+```sh
+helm install redis-cluster-test oci://registry-1.docker.io/bitnamicharts/redis-cluster
+export REDIS_PASSWORD=$(kubectl get secret --namespace "default" redis-cluster-test -o jsonpath="{.data.redis-password}" | base64 -d)
+export REDIS_HOST=$(kubectl get svc --namespace default redis-cluster-test -o jsonpath='{.spec.clusterIP}')
+```
+
 ### Create env variables
 ```sh
 mkdir .do_not_push
@@ -76,9 +99,16 @@ DB_PORT="5432"
 
 # Authentication credentials
 TOKEN_TTL="2000"
-JWT_PRIVATE_KEY="TO_BE_CHANGED"
+JWT_PRIVATE_KEY="<TO_BE_CHANGED>"
+
+REDIS_HOST="$REDIS_HOST"
+REDIS_PORT="6379"
+REDIS_PASSWORD="$REDIS_PASSWORD"
+REDIS_DB="0"
 EOF
 ```
+
+
 
 ### Build the project
 ```sh
@@ -159,11 +189,21 @@ nerdctl build --namespace=k8s.io -t backend .
 ```
 
 ### Personal notes :
-- To create the resources for testing this repo on K8S :
+- To create the resources for testing this repo on K8S (will only work for me as of now :$ ) :
 ```sh
 kubectl apply -f .do_not_push/zz_test.yaml
 kubectl port-forward --namespace default svc/test-k8s-svc 8080:80 &
 kubectl delete -f .do_not_push/zz_test.yaml
+
+kubectl exec -it redis-cluster-test-2 -- bash
+# Inside the container, run :L
+redis-cli -c -h redis-cluster-test -a $REDIS_PASSWORD
+# Then to see the content of the first 15 events in the queue, run :
+LRANGE "queue:new-code-request" -15 -1
+
+
+helm delete redis-cluster-test
+helm delete postgresql-test
 ```
 
 ---

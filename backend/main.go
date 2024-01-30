@@ -12,6 +12,7 @@ import (
 	"k8s_leet_code/helper"
 	"k8s_leet_code/middleware"
 	"k8s_leet_code/model"
+	"k8s_leet_code/redis"
 )
 
 func init() {
@@ -21,6 +22,8 @@ func init() {
 	database.Connect()
 	database.Database.AutoMigrate(&model.User{})
 	database.Database.AutoMigrate(&model.Entry{})
+
+	redis.Connect()
 
 }
 
