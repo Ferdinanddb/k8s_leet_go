@@ -13,7 +13,7 @@ type User struct {
 	gorm.Model
 	Username string `gorm:"size:255;not null;unique" json:"username"`
 	Password string `gorm:"size:255;not null;" json:"-"`
-	Entries  []Entry
+	CodeRequests  []UserCodeRequest
 }
 
 func (user *User) Save() (*User, error) {
@@ -49,7 +49,7 @@ func FindUserByUsername(username string) (User, error) {
 
 func FindUserById(id uint) (User, error) {
 	var user User
-	err := database.Database.Preload("Entries").Where("ID=?", id).Find(&user).Error
+	err := database.Database.Preload("CodeRequests").Where("ID=?", id).Find(&user).Error
 	if err != nil {
 		return User{}, err
 	}

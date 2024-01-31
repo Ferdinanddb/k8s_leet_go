@@ -21,7 +21,9 @@ func init() {
 	// Connect to DB
 	database.Connect()
 	database.Database.AutoMigrate(&model.User{})
-	database.Database.AutoMigrate(&model.Entry{})
+	// database.Database.AutoMigrate(&model.Entry{})
+
+	database.Database.AutoMigrate(&model.UserCodeRequest{})
 
 	redis.Connect()
 
@@ -39,6 +41,7 @@ func main() {
 	protectedRoutes.Use(middleware.JWTAuthMiddleware())
 
 	protectedRoutes.POST("/run_code", api.PostK8sJob)
+	protectedRoutes.GET("/get_history", api.GetUserCodeReqHistory)
 
 	log.Fatal(router.Run(":8080"))
 }
