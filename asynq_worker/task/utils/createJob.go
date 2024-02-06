@@ -25,8 +25,6 @@ import (
 )
 
 
-// TO DELETE
-
 func CreateK8sJob(language string, inputCode string) string {
 	// creates the in-cluster config
 	config, err := rest.InClusterConfig()

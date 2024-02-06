@@ -1,8 +1,8 @@
 package controller
 
 import (
-	"k8s_leet_code/helper"
-	"k8s_leet_code/model"
+	"k8s_leet_code_backend/helper"
+	"k8s_leet_code_backend/model"
 	"net/http"
 	"os"
 

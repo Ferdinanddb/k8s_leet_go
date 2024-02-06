@@ -5,14 +5,14 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"k8s_leet_code/api"
-	"k8s_leet_code/controller"
-	"k8s_leet_code/database"
-	"k8s_leet_code/env"
-	"k8s_leet_code/helper"
-	"k8s_leet_code/middleware"
-	"k8s_leet_code/model"
-	"k8s_leet_code/redis"
+	"k8s_leet_code_backend/api"
+	"k8s_leet_code_backend/asynq_client"
+	"k8s_leet_code_backend/controller"
+	"k8s_leet_code_backend/database"
+	"k8s_leet_code_backend/env"
+	"k8s_leet_code_backend/helper"
+	"k8s_leet_code_backend/middleware"
+	"k8s_leet_code_backend/model"
 )
 
 func init() {
@@ -25,7 +25,7 @@ func init() {
 
 	database.Database.AutoMigrate(&model.UserCodeRequest{})
 
-	redis.Connect()
+	asynq_client.Connect()
 
 }
 

@@ -11,7 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"k8s_leet_code/model"
+	"k8s_leet_code_backend/model"
 )
 
 func RequireAuth(context *gin.Context) {

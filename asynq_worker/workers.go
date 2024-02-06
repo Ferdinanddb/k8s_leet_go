@@ -1,40 +1,40 @@
 package main
 
 import (
-	"context"
+	"fmt"
 	"log"
+	"os"
+
 	"github.com/hibiken/asynq"
+	"k8s_leet_code_asynq_worker/env"
+	"k8s_leet_code_asynq_worker/task"
 )
 
 func main() {
-    srv := asynq.NewServer(
-        asynq.RedisClientOpt{Addr: "localhost:6379"},
-        asynq.Config{Concurrency: 10},
-    )
 
-    mux := asynq.NewServeMux()
-    mux.HandleFunc("email:welcome", sendWelcomeEmail)
-    mux.HandleFunc("email:reminder", sendReminderEmail)
+	env.LoadEnv()
 
-    if err := srv.Run(mux); err != nil {
-        log.Fatal(err)
-    }
-}
+	redisHost := os.Getenv("REDIS_HOST")
+	redisPort := os.Getenv("REDIS_PORT")
+	redisPassword := os.Getenv("REDIS_PASSWORD")
 
-func sendWelcomeEmail(ctx context.Context, t *asynq.Task) error {
-    var p EmailTaskPayload
-    if err := json.Unmarshal(t.Payload(), &p); err != nil {
-        return err
-    }
-    log.Printf(" [*] Send Welcome Email to User %d", p.UserID)
-    return nil
-}
+	srv := asynq.NewServer(
+		asynq.RedisClusterClientOpt{
+			Addrs: []string{fmt.Sprintf("%v:%v", redisHost, redisPort)},
+			Password: redisPassword,
+		},
+		asynq.Config{
+			Concurrency: 4,
+			// Queues: map[string]int{
+			// 	"queue:code_request": 4, // processed 100% of the time
+			// },
+		},
+	)
 
-func sendReminderEmail(ctx context.Context, t *asynq.Task) error {
-    var p EmailTaskPayload
-    if err := json.Unmarshal(t.Payload(), &p); err != nil {
-        return err
-    }
-    log.Printf(" [*] Send Reminder Email to User %d", p.UserID)
-    return nil
+	mux := asynq.NewServeMux()
+	mux.HandleFunc(task.TypeRunCode, task.HandleRunCodePythonTask)
+
+	if err := srv.Run(mux); err != nil {
+		log.Fatal(err)
+	}
 }

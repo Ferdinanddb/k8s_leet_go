@@ -7,7 +7,9 @@ type CodeRequest struct {
 }
 
 type ExtentedCodeRequest struct {
-	CodeReq CodeRequest
+	UserID uint
+	Language string
+	Content string
 	ReqTS int64
 	UniqueID string
 

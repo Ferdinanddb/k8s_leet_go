@@ -1,7 +1,7 @@
 package middleware
 
 import (
-	"k8s_leet_code/helper"
+	"k8s_leet_code_backend/helper"
 	"net/http"
 
 	"github.com/gin-gonic/gin"

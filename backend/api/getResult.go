@@ -5,17 +5,16 @@ import (
 
 	"net/http"
 
-	"k8s_leet_code/helper"
+	"k8s_leet_code_backend/helper"
 )
 
-
 func GetUserCodeReqHistory(context *gin.Context) {
-    user, err := helper.CurrentUser(context)
+	user, err := helper.CurrentUser(context)
 
-    if err != nil {
-        context.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-        return
-    }
+	if err != nil {
+		context.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
-    context.JSON(http.StatusOK, gin.H{"data": user.CodeRequests})
+	context.JSON(http.StatusOK, gin.H{"data": user.CodeRequests})
 }

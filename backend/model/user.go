@@ -2,7 +2,7 @@ package model
 
 import (
 	"html"
-	"k8s_leet_code/database"
+	"k8s_leet_code_backend/database"
 	"strings"
 
 	"golang.org/x/crypto/bcrypt"
@@ -11,9 +11,9 @@ import (
 
 type User struct {
 	gorm.Model
-	Username string `gorm:"size:255;not null;unique" json:"username"`
-	Password string `gorm:"size:255;not null;" json:"-"`
-	CodeRequests  []UserCodeRequest
+	Username     string `gorm:"size:255;not null;unique" json:"username"`
+	Password     string `gorm:"size:255;not null;" json:"-"`
+	CodeRequests []UserCodeRequest
 }
 
 func (user *User) Save() (*User, error) {

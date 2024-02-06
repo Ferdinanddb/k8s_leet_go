@@ -31,11 +31,16 @@ I do this to :
   - [ ] Try to improve this ? Is it worth to cache the token ?
 - [X] Implement the DB
   - [ ] Implement a table to host all the UserCodeRequest (userID, instanciationTime, requestUUID, languague, codeContent, workerStatus, outputResult)
-- [ ] Implement 2 go routines in _backend/api/postJob.go_ in order to :
-  - [ ] Push an event to Redis,
-  - [ ] Push the same event in the PostgreSQL table _UserCodeRequest_.
-- [ ] Start developping the asynq-worker go module to take care of suscribing to the Redis queue, handle the jobs, update corresp. rows in PostgreSQL table_UserCodeRequest_
-  - [ ] Use this [ASYNQ](https://github.com/hibiken/asynq) lib
+- [X] Implement 2 go routines in _backend/api/postJob.go_ in order to :
+  - [X] Push an event to Redis,
+  - [X] Push the same event in the PostgreSQL table _UserCodeRequest_.
+- [X] Start developping the asynq-worker go module to take care of suscribing to the Redis queue, handle the jobs, update corresp. rows in PostgreSQL table_UserCodeRequest_
+  - [X] Use this [ASYNQ](https://github.com/hibiken/asynq) lib
+  - [ ] Code the logic in asynq_worker/task/utils/createJob.go in order to write the result in the DB and may be a cache per user ?
+    - Real question here is : how can the user retrieve "automatically" the result of their POST request in this setup ? websocket ? cache ?
+  - [ ] Implement another logic to handle another programming language like golang
+  - [ ] Understand how to implement the UI that is showed in the ASYNQ repo
+  - 
 - [ ] May be try to implement a front-end in golang lol ?
 
 
@@ -182,15 +187,24 @@ class Solution:
 print(Solution.add(1,1))
 ```
 
-### Build the container image
+### Build the backend container image
 - I use `nerdctl` which comes with Rancher Desktop :
 ```sh
 nerdctl build --namespace=k8s.io -t backend .
 ```
 
-### Personal notes :
-- To create the resources for testing this repo on K8S (will only work for me as of now :$ ) :
+### Build the asynq_worker container image
+- I use `nerdctl` which comes with Rancher Desktop :
 ```sh
+nerdctl build --namespace=k8s.io -t asynq_worker .
+```
+
+### Personal notes :
+To create the resources for testing this repo on K8S (will only work for me as of now :$ ) :
+
+- For backend
+```sh
+cd backend
 kubectl apply -f .do_not_push/zz_test.yaml
 kubectl port-forward --namespace default svc/test-k8s-svc 8080:80 &
 kubectl delete -f .do_not_push/zz_test.yaml
@@ -204,6 +218,12 @@ LRANGE "queue:new-code-request" -15 -1
 
 helm delete redis-cluster-test
 helm delete postgresql-test
+```
+
+- For asynq_worker
+```sh
+cd asynq_worker
+kubectl apply -f .do_not_push/zz_test.yaml
 ```
 
 ---

@@ -3,7 +3,7 @@ package helper
 import (
 	"errors"
 	"fmt"
-	"k8s_leet_code/model"
+	"k8s_leet_code_backend/model"
 	"net/http"
 	"os"
 	"strconv"
