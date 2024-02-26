@@ -8,11 +8,14 @@ import (
 	"github.com/hibiken/asynq"
 	"k8s_leet_code_asynq_worker/env"
 	"k8s_leet_code_asynq_worker/task"
+	"k8s_leet_code_asynq_worker/database"
 )
 
 func main() {
 
-	env.LoadEnv()
+	env.VerifyEnv()
+
+	database.Connect()
 
 	redisHost := os.Getenv("REDIS_HOST")
 	redisPort := os.Getenv("REDIS_PORT")

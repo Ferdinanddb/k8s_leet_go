@@ -35,7 +35,7 @@ func HandleRunCodePythonTask(ctx context.Context, t *asynq.Task) error {
 
 	instanciationTime := time.Now().UTC()
 
-	jobResponse := taskutils.CreateK8sJob(p.Language, p.Content)
+	jobResponse := taskutils.CreateK8sJob(p.Language, p.Content, p.UniqueID, p.UserID)
 
 	resultTime := time.Now().UTC().UnixMilli()
 	timeDiff := (resultTime - instanciationTime.UnixMilli()) / 1000

@@ -36,19 +36,22 @@ I do this to :
   - [X] Push the same event in the PostgreSQL table _UserCodeRequest_.
 - [X] Start developping the asynq-worker go module to take care of suscribing to the Redis queue, handle the jobs, update corresp. rows in PostgreSQL table_UserCodeRequest_
   - [X] Use this [ASYNQ](https://github.com/hibiken/asynq) lib
-  - [ ] Code the logic in asynq_worker/task/utils/createJob.go in order to write the result in the DB and may be a cache per user ?
+  - [X] Code the logic in asynq_worker/task/utils/createJob.go in order to write the result in the DB and may be a cache per user ?
+  - [ ] Code the logic in asynq_worker/task/utils/createJob.go in order to a cache per user ?
     - Real question here is : how can the user retrieve "automatically" the result of their POST request in this setup ? websocket ? cache ?
   - [ ] Implement another logic to handle another programming language like golang
   - [ ] Understand how to implement the UI that is showed in the ASYNQ repo
   - 
-- [ ] May be try to implement a front-end in golang lol ?
+- [ ] May be try to implement a front-end in Javascript or Typescript ?
 
 
-- [ ] Implement helm chart to deploy postgres, redis, backend, asynq-worker, ... and their needed resources.
-- [ ] Respect the _least access privileges principle_ by creating a k8s service account for the backend and another service account with extended rights for creating k8s jobs, pods, retrieving logs, ... for the asynq-worker service.
-- [ ] Implement the history retrieval
+- [X] Implement helm chart to deploy postgres, redis, backend, asynq-worker, ... and their needed resources.
+  - [ ] Improve both backend's and asynq_worker's `initContainers` to wait for the PostgreSQL and Redis pods to be up and running.
+- [X] Respect the _least access privileges principle_ by creating a k8s service account for the backend and another service account with extended rights for creating k8s jobs, pods, retrieving logs, ... for the asynq-worker service.
+- [X] Implement the history retrieval
+  - [ ] Implement a GET endpoint to retrieve the last request made be the user
 - [ ] Implement a caching layer
-- [ ] Improve the scalability
+- [ ] Improve the scalability by adding a HPA (Horinzontal Pod Autoscaler)
 - [ ] Create a Makefile for this project to be initialized, built, tested, and containerized
 
 
@@ -62,77 +65,35 @@ I do this to :
     - Rancher uses containerd in my case behind the scene, all the container images are retrieve thanks to Rancher.
 - Install helm
 
-### Do not forget to `cd` into backend lol !
+
+### Build the backend container image
+- I use `nerdctl` which comes with Rancher Desktop :
 ```sh
-cd backend
+nerdctl build --namespace=k8s.io -t backend ./backend/
 ```
 
-### Get the dependencies 
+### Build the asynq_worker container image
+- I use `nerdctl` which comes with Rancher Desktop :
 ```sh
-go get .
+nerdctl build --namespace=k8s.io -t asynq_worker ./asynq_worker/
 ```
 
-### PostgreSQL initialization
+## Deploy the resources using Helm :
+
+- Create the resources using
 ```sh
-helm install postgresql-test oci://registry-1.docker.io/bitnamicharts/postgresql
-export PGPASSWORD=$(kubectl get secret --namespace default postgresql-test -o jsonpath="{.data.postgres-password}" | base64 -d)
-export PG_HOST=$(kubectl get svc --namespace default postgresql-test -o jsonpath='{.spec.clusterIP}')
-
-
-# The following is not needed when deploying through YAML manifest file or Helm chart
-kubectl port-forward --namespace default svc/postgresql-test 5432:5432 &
-createdb --host 127.0.0.1 -U postgres  -p 5432 test -w
-```
-
-### Redis Cluster initialization
-```sh
-helm install redis-cluster-test oci://registry-1.docker.io/bitnamicharts/redis-cluster
-export REDIS_PASSWORD=$(kubectl get secret --namespace "default" redis-cluster-test -o jsonpath="{.data.redis-password}" | base64 -d)
-export REDIS_HOST=$(kubectl get svc --namespace default redis-cluster-test -o jsonpath='{.spec.clusterIP}')
-```
-
-### Create env variables
-```sh
-mkdir .do_not_push
-cat <<EOF > .do_not_push/.env
-# Database credentials
-DB_HOST="127.0.0.1"
-DB_USER="postgres"
-PGPASSWORD="$PGPASSWORD"
-DB_NAME="test"
-DB_PORT="5432"
-
-# Authentication credentials
-TOKEN_TTL="2000"
-JWT_PRIVATE_KEY="<TO_BE_CHANGED>"
-
-REDIS_HOST="$REDIS_HOST"
-REDIS_PORT="6379"
-REDIS_PASSWORD="$REDIS_PASSWORD"
-REDIS_DB="0"
-EOF
-```
-
-
-
-### Build the project
-```sh
-go build -o ./backend
-```
-
-### Run the project
-```sh
-# After building the project, run:
-./backend
-
-# Without building the project, run:
-go run .
+helm upgrade -i  k8s-leet-go ./_INFRA/k8s-leet-go
 ```
 
 ### Perform a test
 
-I did use Postman to perform a test because it is simpler since cookies are used to store the auth token.
-- On macOS : `brew install postman`
+- Once the helm chart got installed and every pods are up and running, we can port-forward the backend service to interact with it:
+```sh
+kubectl port-forward --namespace default svc/k8s-leet-go-backend 8080:80
+```
+
+- I did use Postman to perform a test because it is simpler since cookies are used to store the auth token.
+  - On macOS : `brew install postman`
 
 #### Inside Postman :
 
@@ -173,57 +134,38 @@ I did use Postman to perform a test because it is simpler since cookies are used
     }
     ```
 - Click on Send
-- After a few seconds (~5secs), the following should appear in the Response section :
+
+4. After a few seconds (~3secs), you can perform a GET request to see your results:
+- URL : `http://localhost:8080/api/get_history`
+- Click on Send
+- You should get a response that looks like the following:
+```json
+{
+    "data": [
+        {
+            "UserID": 1,
+            "InstanciationTS": "2024-02-26T21:27:04.186798Z",
+            "RequestUUID": "3ec55904-f647-4c4c-aaf6-b0ce32e9874a",
+            "CodeContent": "class Solution:\n\tdef add(a,b):\n\t\treturn a + b\n\nprint(Solution.add(1,8))",
+            "WorkerStatus": {
+                "String": "success",
+                "Valid": true
+            },
+            "OutputResult": {
+                "String": "2\n",
+                "Valid": true
+            }
+        }
+    ]
+}
 ```
-User is test1
-Result is 2
 
-Code executed is:
+## Delete the Helm chart to delete the resources :
 
-class Solution:
-	def add(a,b):
-		return a + b
-
-print(Solution.add(1,1))
-```
-
-### Build the backend container image
-- I use `nerdctl` which comes with Rancher Desktop :
+- Delete the resources using
 ```sh
-nerdctl build --namespace=k8s.io -t backend .
-```
-
-### Build the asynq_worker container image
-- I use `nerdctl` which comes with Rancher Desktop :
-```sh
-nerdctl build --namespace=k8s.io -t asynq_worker .
-```
-
-### Personal notes :
-To create the resources for testing this repo on K8S (will only work for me as of now :$ ) :
-
-- For backend
-```sh
-cd backend
-kubectl apply -f .do_not_push/zz_test.yaml
-kubectl port-forward --namespace default svc/test-k8s-svc 8080:80 &
-kubectl delete -f .do_not_push/zz_test.yaml
-
-kubectl exec -it redis-cluster-test-2 -- bash
-# Inside the container, run :L
-redis-cli -c -h redis-cluster-test -a $REDIS_PASSWORD
-# Then to see the content of the first 15 events in the queue, run :
-LRANGE "queue:new-code-request" -15 -1
-
-
-helm delete redis-cluster-test
-helm delete postgresql-test
-```
-
-- For asynq_worker
-```sh
-cd asynq_worker
-kubectl apply -f .do_not_push/zz_test.yaml
+helm delete k8s-leet-go
+kubectl delete pvc --all
 ```
 
 ---

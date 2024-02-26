@@ -1,0 +1,14 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: "{{ .Release.Namespace }}"
+  name: read-redis-pg-secrets
+rules:
+  - apiGroups:
+      - "" # "" indicates the core API group
+    resources:
+      - secrets
+    verbs:
+      - get
+      - list
+      - watch

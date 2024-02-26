@@ -2,7 +2,3 @@
 
 .do_not_push/
 
-
-# Remove that once Helm chart is ready
-_INFRA/
-

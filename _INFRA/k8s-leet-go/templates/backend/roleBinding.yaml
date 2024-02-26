@@ -1,0 +1,14 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: k8s-leet-code-user
+  namespace: "{{ .Release.Namespace }}"
+subjects:
+- kind: ServiceAccount
+  name: ksa-k8s-leet-go-backend
+  namespace: "{{ .Release.Namespace }}"
+roleRef:
+  # "roleRef" specifies the binding to a Role / ClusterRole
+  kind: Role #this must be Role or ClusterRole
+  name: read-redis-pg-secrets # this must match the name of the Role or ClusterRole you wish to bind to
+  apiGroup: rbac.authorization.k8s.io

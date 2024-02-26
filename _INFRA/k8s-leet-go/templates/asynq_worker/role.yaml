@@ -1,0 +1,22 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: "{{ .Release.Namespace }}"
+  name: k8s-leet-code-asynq-worker-role
+rules:
+  - apiGroups:
+      - "" # "" indicates the core API group
+      - "batch"
+    resources:
+      - pods
+      - pods/log
+      - jobs
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - delete
+      - deletecollection
+      - patch
+      - update

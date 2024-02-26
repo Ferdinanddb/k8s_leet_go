@@ -12,6 +12,7 @@ import (
 	"log"
 	// "path/filepath"
 	"time"
+	"sync"
 
 	// appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -22,10 +23,12 @@ import (
 	// "k8s.io/client-go/util/homedir"
 
 	"k8s.io/client-go/rest"
+
+	"k8s_leet_code_asynq_worker/database"
 )
 
 
-func CreateK8sJob(language string, inputCode string) string {
+func CreateK8sJob(language string, inputCode string, uuid string, userId uint) string {
 	// creates the in-cluster config
 	config, err := rest.InClusterConfig()
 	if err != nil {
@@ -158,24 +161,48 @@ func CreateK8sJob(language string, inputCode string) string {
 
 		log.Println(strLogs)
 
-		// prompt()
-		log.Println("Deleting pod...")
-		deletePolicy := metav1.DeletePropagationForeground
-		if err := podsClient.Delete(context.TODO(), v.Name, metav1.DeleteOptions{
-			PropagationPolicy: &deletePolicy,
-		}); err != nil {
-			panic(err)
-		}
-		log.Println("Deleted pod.")
 
-		log.Println("Deleting job...")
-		job_deletePolicy := metav1.DeletePropagationForeground
-		if job_err := jobsClient.Delete(context.TODO(), job_res.GetName(), metav1.DeleteOptions{
-			PropagationPolicy: &job_deletePolicy,
-		}); job_err != nil {
-			panic(err)
-		}
-		log.Println("Deleted job.")
+		var wg sync.WaitGroup
+
+		wg.Add(2)
+
+		go func() {
+			defer wg.Done()
+			// Update in DB
+			// database.Database.Model(&model.UserCodeRequest{}).Where("request_uuid = ?", uuid).Where()
+			database.Database.Table("user_code_requests").Where("user_id = ?", userId).Where("request_uuid = ?", uuid).Updates(
+				map[string]interface{}{
+					"worker_status": "success",
+					"output_result": strLogs,
+				},
+			)
+			log.Println("Successfully updated the DB.")
+		}()
+
+		go func() {
+			defer wg.Done()
+
+			// prompt()
+			log.Println("Deleting pod...")
+			deletePolicy := metav1.DeletePropagationForeground
+			if err := podsClient.Delete(context.TODO(), v.Name, metav1.DeleteOptions{
+				PropagationPolicy: &deletePolicy,
+			}); err != nil {
+				panic(err)
+			}
+			log.Println("Deleted pod.")
+
+			log.Println("Deleting job...")
+			job_deletePolicy := metav1.DeletePropagationForeground
+			if job_err := jobsClient.Delete(context.TODO(), job_res.GetName(), metav1.DeleteOptions{
+				PropagationPolicy: &job_deletePolicy,
+			}); job_err != nil {
+				panic(err)
+			}
+			log.Println("Deleted job.")
+		}()
+
+		wg.Wait()
 	}
 
 	return strLogs

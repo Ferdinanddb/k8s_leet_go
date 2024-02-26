@@ -1,0 +1,50 @@
+# Default values for k8s-leet-go.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+backend:
+  replicaCount: 1
+  image:
+    repository: backend
+    tag: latest
+    pullPolicy: IfNotPresent
+  
+  jwt_private_key: "qweqwfqecqccdwcwc123"
+  token_ttl: 2000
+
+asynq_worker:
+  replicaCount: 1
+  image:
+    repository: asynq_worker
+    tag: latest
+    pullPolicy: IfNotPresent
+
+postgresql:
+  enabled: true
+  containerPorts:
+    postgresql: 5432
+  auth:
+    enablePostgresUser: true
+    postgresPassword: "postgres"
+    username: "qwertz"
+    password: "qwertz"
+    database: "test"
+  
+  resources: {}
+    # limits:
+    #   cpu: 100m
+    #   memory: 128Mi
+    # requests:
+    #   cpu: 100m
+    #   memory: 128Mi
+
+
+
+redis-cluster:
+  enabled: true
+  usePassword: true
+  password: "qwertz"
+  cluster:
+    externalAccess:
+      service:
+        port: 6379
